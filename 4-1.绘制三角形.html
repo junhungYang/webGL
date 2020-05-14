@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>绘制三角型</title>
+</head>
+<body>
+  <canvas width="500" height="500" id="oCanvas"></canvas>
+  <script type="notjs" id="vertex">
+    attribute vec2 a_position;
+    attribute vec4 a_color;
+    uniform vec2 screenSize;
+    varying vec4 v_color;
+    attribute float pointSize;
+    void main() {
+      float x = a_position.x * 2.0 / screenSize.x - 1.0;
+      float y = 1.0 - a_position.y * 2.0 / screenSize.y;
+      gl_Position = vec4(x, y, 0, 1);
+      gl_PointSize = pointSize;
+      v_color = a_color;
+    }   
+  </script>
+  <script type="notjs" id="fragment">
+    precision mediump float;
+    varying vec4 v_color; 
+    void main() {
+      gl_FragColor = v_color;
+    }   
+  </script>
+  <script>
+     const oCanvas = document.getElementById('oCanvas')
+     const gl = oCanvas.getContext('webgl')
+
+     // 创建着色器
+      function createShader(gl,type,source) {
+        const shader = gl.createShader(type) /*创建着色器，分为顶点与片源着色器*/
+        gl.shaderSource(shader,source) /*往着色器添加资源*/
+        gl.compileShader(shader) /*编译着色器代码*/
+        const success = gl.getShaderParameter(shader,gl.COMPILE_STATUS) /*获取编译结果*/
+        if(success) return shader
+        console.log(gl.getShaderInfoLog(shader))
+      }
+
+      const vertexStr = document.getElementById('vertex').innerText
+      const fragmentStr = document.getElementById('fragment').innerText
+      const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexStr)
+      const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentStr)
+      console.log(fragmentShader)
+      function createProgram(gl, vertexShader, fragmentShader) {
+        const program = gl.createProgram() /*创建程序*/
+        gl.attachShader(program,vertexShader) /*给程序绑定着色器*/
+        gl.attachShader(program,fragmentShader)
+        gl.linkProgram(program) /*连接着色器*/
+        const success = gl.getProgramParameter(program,gl.LINK_STATUS)
+        if(success) return program
+        console.log(gl.getProgramInfoLog(program))
+      }
+      const program = createProgram(gl,vertexShader,fragmentShader)
+      console.log(program)
+      gl.useProgram(program)
+
+      gl.clearColor(0,0,0,1) /*设置用于清空的颜色，注意这里不是清空什么颜色，可以理解为涂料，用什么颜色的涂料去刷掉墙上原来的图案*/
+      gl.clear(gl.COLOR_BUFFER_BIT) /*清空操作，清空颜色缓冲区*/
+      
+      let a_position = gl.getAttribLocation(program, 'a_position') /*获取attribute存储位置*/
+      let ponitSize = gl.getAttribLocation(program, 'pointSize')
+      let screenSize = gl.getUniformLocation(program, 'screenSize') /*获取uniform存储位置*/
+      const a_color = gl.getAttribLocation(program,'a_color')
+      gl.uniform2f(screenSize,oCanvas.width, oCanvas.height)
+      gl.vertexAttrib4f(a_color,1,1,1,1)
+
+      const positionBuffer = gl.createBuffer() /*创建顶点缓冲区对象,用于存储数据以及一次传入大量数据*/
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer) /*把positionBuffer绑定到gl的ARRAY_BUFFER，即gl的ARRAY_BUFFER是对实际缓冲区对象positionBuffer的引用*/
+      const indexBuffer = gl.createBuffer()
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,indexBuffer)
+      
+      function draw(positions,type,unit,indexs) {
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions),gl.STATIC_DRAW) /*往缓冲区写入数据*/
+        indexs && gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexs),gl.STATIC_DRAW) /*往索引缓冲区写入数据*/
+        gl.vertexAttribPointer(a_position, unit, gl.FLOAT, false, unit*4, 0) /*为绑定到缓冲区的顶点数据指定分配位置*/
+        // gl.vertexAttribPointer(ponitSize,1,gl.FLOAT, false, 3*4,2*4)
+        /* 参数含义：1. 需要分配给的变量
+                    2. 分量
+                    3. 数据类型
+                    4. 是否归一化，在浮点型数据基础下不进行归一化
+                    5. 指定相邻两顶点间的字节数
+                    6. 偏移量即属于变量的数据从缓冲区数据中的第几位开始*/
+
+
+        gl.enableVertexAttribArray(a_position) /*缓冲区对象和顶点着色器之间存在一个开关，必须将该开关闭合才能让顶点着色器与缓冲区对象真正连接上，类似于打开电路开关*/
+        // gl.enableVertexAttribArray(ponitSize)
+
+        if(indexs) {
+          gl.drawElements(gl[type],indexs.length,gl.UNSIGNED_SHORT,0)
+        }else {
+          gl.drawArrays(gl[type], 0, positions.length / unit)
+        }
+      }
+
+      /*绘制三角型*/
+      // draw([
+      //   50,50,
+      //   50,100,
+      //   100,100,
+      //   150,150,
+      //   150,200,
+      //   200,200],'TRIANGLES',2)
+     
+
+      /*绘制线段*/
+      // draw([
+      //   50,50,
+      //   100,100,
+      //   150,150,
+      //   200,200
+      // ],'LINES',2)
+
+      /*绘制线条*/
+      // draw([
+      //   50,50,
+      //   100,100,
+      //   150,50
+      // ],'LINE_STRIP',2)
+
+      /*绘制回路*/
+      // draw([
+      //   50,50,
+      //   100,100,
+      //   150,50,
+      //   200,100
+      // ],'LINE_LOOP',2)
+
+
+      /*绘制三角带*/
+      // draw([
+      //   50,50,
+      //   100,100,
+      //   150,50,
+      //   200,100
+      // ],'TRIANGLE_STRIP',2)
+
+      /*绘制三角扇*/
+      // draw([
+      //   100,100,
+      //   50,50,
+      //   150,50,
+      //   150,150,
+      //   50,150
+      // ],'TRIANGLE_FAN',2)
+
+
+      /*两个三角型绘制矩形（逆时针为正面，顺时针为反面）*/
+      // draw([
+      //   50,50,
+      //   50,100,
+      //   100,100,
+      //   100,50
+      // ],'TRIANGLES',2,
+      // [
+      //   0,1,2,
+      //   0,2,3
+      // ])
+
+
+      /*三角型扇绘制矩形*/
+      // draw([
+      //   100,100,
+      //   50,50,
+      //   50,150,
+      //   150,150,
+      //   150,50
+      // ],'TRIANGLE_FAN',2,
+      // [0,1,2,3,4,1])
+
+      /*三角型带绘制矩形*/
+      // draw([
+      //   50,50,
+      //   100,100,
+      //   150,50,
+      //   200,100
+      // ],'TRIANGLE_STRIP',2,
+      // [0,1,2,3])
+
+
+      /*三角形扇绘制圆*/
+      // function drawRound(center,radius,n) {
+      //   const positions = [...center]
+      //   for(let i = 0; i < n; i++) {
+      //     const angle = i * 2 * Math.PI / n
+      //     const pointy = radius * Math.sin(angle) + center[1]
+      //     const pointx = radius * Math.cos(angle) + center[0]
+      //     positions.push(pointx,pointy)
+      //   }
+      //   draw(positions,'TRIANGLE_FAN',2)
+      // }
+      // drawRound([50,50],50,8)
+
+      /*三角形带绘制圆环*/
+      function drawCircular(center,outRadius,inRadius,n) {
+        const positions = []
+        const indexs = []
+        for(let i = 0; i <= n; i++) {
+          const angle = i * 2 * Math.PI / n
+          const outY = outRadius * Math.sin(angle) + center[1]
+          const inY = inRadius * Math.sin(angle) + center[1]
+          const outX = outRadius * Math.cos(angle) + center[0]
+          const inX = inRadius * Math.cos(angle) + center[0]
+          positions.push(inX,inY,outX,outY)
+          // if(i === n) return
+          if( i === n) continue
+          let v0 = i * 2
+          let v1 = v0 + 1
+          let v2 = v0 + 2
+          let v3 = v0 + 3
+          if(i === n - 1) {
+            v2 = 0
+            v3 = 1
+          }
+          indexs.push(v0,v1,v2,v2,v1,v3)
+          /*使用TRIANGLE_STRIP时  可以把索引切换为 v0,v1,v2,v3*/
+        }
+        console.log(indexs)
+        draw(positions,'TRIANGLES',2 ,indexs)
+      }
+      drawCircular([50,50],50,30,50)
+  </script>
+</body>
+</html>

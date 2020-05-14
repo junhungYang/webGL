@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>绘制三角型</title>
+</head>
+<body>
+  <canvas width="500" height="500" id="oCanvas"></canvas>
+  <script type="notjs" id="vertex">
+    attribute vec2 a_position;
+    attribute vec4 a_color;
+    uniform vec2 screenSize;
+    attribute float pointSize;
+    attribute vec2 a_TexCoord; /*接受纹理坐标*/
+    varying vec2 v_TexCoord; 
+    void main() {
+      float x = a_position.x * 2.0 / screenSize.x - 1.0;
+      float y = 1.0 - a_position.y * 2.0 / screenSize.y;
+      gl_Position = vec4(x, y, 0, 1);
+      gl_PointSize = pointSize;
+      v_TexCoord = a_TexCoord; /*传递给片元着色器*/
+    }   
+  </script>
+  <script type="notjs" id="fragment">
+    precision mediump float;
+    varying vec2 v_TexCoord; /*纹理坐标*/
+    uniform sampler2D u_Sampler; /*取样器，值类型为纹理图像的颜色源数据，除了sampler2D(平面图像)以外还有samplerCube(立方体相关)*/
+    void main() {
+      /*纹理坐标，与取样器有了后，就需要调用方法 texture2D根据具体的纹理坐标，取得该位置下的纹理图像颜色后，再将该颜色赋值给当前片元*/
+      gl_FragColor = texture2D(u_Sampler,v_TexCoord); 
+    }   
+  </script> 
+  <script>
+     const oCanvas = document.getElementById('oCanvas')
+     const gl = oCanvas.getContext('webgl')
+
+     // 创建着色器
+      function createShader(gl,type,source) {
+        const shader = gl.createShader(type) /*创建着色器，分为顶点与片源着色器*/
+        gl.shaderSource(shader,source) /*往着色器添加资源*/
+        gl.compileShader(shader) /*编译着色器代码*/
+        const success = gl.getShaderParameter(shader,gl.COMPILE_STATUS) /*获取编译结果*/
+        if(success) return shader
+        console.log(gl.getShaderInfoLog(shader))
+      }
+
+      const vertexStr = document.getElementById('vertex').innerText
+      const fragmentStr = document.getElementById('fragment').innerText
+      const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexStr)
+      const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentStr)
+      console.log(fragmentShader)
+      function createProgram(gl, vertexShader, fragmentShader) {
+        const program = gl.createProgram() /*创建程序*/
+        gl.attachShader(program,vertexShader) /*给程序绑定着色器*/
+        gl.attachShader(program,fragmentShader)
+        gl.linkProgram(program) /*连接着色器*/
+        const success = gl.getProgramParameter(program,gl.LINK_STATUS)
+        if(success) return program
+        console.log(gl.getProgramInfoLog(program))
+      }
+      const program = createProgram(gl,vertexShader,fragmentShader)
+      console.log(program)
+      gl.useProgram(program)
+
+      gl.clearColor(1,1,1,1) /*设置用于清空的颜色，注意这里不是清空什么颜色，可以理解为涂料，用什么颜色的涂料去刷掉墙上原来的图案*/
+      gl.clear(gl.COLOR_BUFFER_BIT) /*清空操作，清空颜色缓冲区*/
+      
+      let a_position = gl.getAttribLocation(program, 'a_position') /*获取attribute存储位置*/
+      let ponitSize = gl.getAttribLocation(program, 'pointSize')
+      let screenSize = gl.getUniformLocation(program, 'screenSize') /*获取uniform存储位置*/
+      const a_color = gl.getAttribLocation(program,'a_color')
+      gl.uniform2f(screenSize,oCanvas.width, oCanvas.height)
+
+      const positionBuffer = gl.createBuffer() /*创建顶点缓冲区对象,用于存储数据以及一次传入大量数据*/
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer) /*把positionBuffer绑定到gl的ARRAY_BUFFER，即gl的ARRAY_BUFFER是对实际缓冲区对象positionBuffer的引用*/
+      const indexBuffer = gl.createBuffer()
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,indexBuffer)
+      
+      /*纹理坐标变量*/
+      const a_TexCoord = gl.getAttribLocation(program,'a_TexCoord')
+      const u_Sampler = gl.getUniformLocation(program,'u_Sampler')
+      function draw(positions,type,unit ) {
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions),gl.STATIC_DRAW) /*往缓冲区写入数据*/
+        gl.vertexAttribPointer(a_position, unit, gl.FLOAT, false, 4*4, 4*0) /*为绑定到缓冲区的顶点数据指定分配位置*/
+        gl.vertexAttribPointer(a_TexCoord, unit, gl.FLOAT, false, 4*4, 4*2)
+        gl.enableVertexAttribArray(a_position)
+        gl.enableVertexAttribArray(a_TexCoord) /*启用(允许)缓冲区往a_TexCoord分配数据*/
+        gl.drawArrays(gl[type], 0, 6)
+      }
+
+      /*配置和加载纹理*/
+      const texture = gl.createTexture() /*创建纹理对象以储存纹理图像*/
+
+      /*纹理单元，存在于WEBGL系统内部，用于管理和存储纹理图像，假如所绘制的图形需要用到多个纹理，
+        那么就需要开辟多个纹理单元用于存储纹理图像，可以理解为为某个纹理元素进行存储并需要时调用
+        gl.TEXTURE0....gl.TEXTURE7*/
+
+      const oImg = new Image()
+      oImg.onload = function (e) {
+        /*激活纹理单元*/
+        gl.activeTexture(gl.TEXTURE0)
+        /*绑定纹理对象(如果已经通过gl.activeTexture()激活了某个纹理单元，则纹理对象也会被绑定到该纹理单元上)
+          即texture会被绑定止gl.TEXTURE_2D（二维纹理）和gl.TEXTURE0上*/
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        
+        /*
+          配置纹理对象的计算策略(texture)
+          这里四个pname都应该全部配置上，因为WEBGL再计算过程中并非单纯地把图片放大或缩小，
+          为了更好的纹理质量它可能会经过放大后再缩小等等，多重的策略后再真正完成图片的计算
+        */
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    
+        /*将纹理图像分配给纹理对象*/
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, oImg)
+
+        /*纹理单元配置完毕，将纹理单元传递给取样器，由于我们使用的是gl.TEXTURE0 所以第二参数传递 0*/
+        gl.uniform1i(u_Sampler, 0)
+
+        /*对于纹理图像而言，它的(0,0)坐标为左下角*/
+        draw([
+          212,212,0.5,0.5,
+          50,50,0,0,
+          50,350,0,1,
+          350,350,1,1,
+          350,50,1,0,
+          50,50,0,0
+        ],'TRIANGLE_FAN',2)
+      }
+      oImg.src = './img1.jpg'
+
+  </script>
+</body>
+</html>
