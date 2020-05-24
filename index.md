@@ -57,3 +57,31 @@ gl.LINEAR | 取的是距离新像素中心最近的四个像素的加权平均�
 gl.REPEAT | 平铺式的重复纹理
 gl.MIRRORED_REPEAT | 镜像对称式的重复纹理
 gl.CLAMP_TO_EDGE | 使用纹理图像边缘值
+
+# 三角函数相关应用
+```
+sin(α+β) = sin(α) * cos(β) + cos(α) * sin(β)
+sin(α-β) = sin(α) * cos(β) - cos(α) * sin(β)
+cos(α+β) = cos(α) * cos(β) - sin(α) * sin(β)
+cos(α-β) = cos(α) * cos(β) + sin(α) * sin(β)
+
+```
+![旋转](./旋转.jpg)
+
+在图3.22  已知p点坐标(x,y,z)和r半径，p点旋转β度至p'点, 求(x',y',z')
+```
+x' = r * cos(α + β)
+   = r * (cos(α) * cos(β) - sin(α) * sin(β))
+   = r * ( x / r * cos(β) -  y / r * sin(β))
+   = r * (x * cos(β) - y * sin(β)) * 1 / r 
+   = x * cos(β) - y * sin(β)
+
+y' = r * sin(α + β)
+   = r * (sin(α) * cos(β) + cos(α) * sin(β))
+   = r * ( y / r * cos(β) +  x / r * sin(β))
+   = y * cos(β) + x * sin(β)
+
+z' = z
+```
+
+
