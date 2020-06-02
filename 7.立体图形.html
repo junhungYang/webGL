@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图像平移</title>
+</head>
+<body>
+  <canvas width="500" height="500" id="oCanvas"></canvas>
+  <script src="./cuon-matrix.js"></script>
+  <script type="notjs" id="vertex">
+    attribute vec3 a_position;
+    attribute vec4 a_color;
+    varying vec4 v_color;
+    uniform mat4 u_Matrix;
+    void main() {
+      gl_Position = u_Matrix * vec4(a_position, 1);
+      v_color = a_color;
+    }
+  </script>
+  <script type="notjs" id="fragment">
+    precision mediump float;
+    varying vec4 v_color;
+    void main() {
+      gl_FragColor = v_color;
+    }
+  </script>
+  <script>
+    const oCanvas = document.getElementById('oCanvas')
+    const gl = oCanvas.getContext('webgl')
+
+    function createShader(gl,type,source) {
+      const shader = gl.createShader(type)
+      gl.shaderSource(shader, source)
+      gl.compileShader(shader)
+      const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS)
+      if(success) return shader
+      console.log(gl.getShaderInfoLog(shader))
+    }
+
+    const vertexStr = document.getElementById('vertex').innerText
+    const fragmentStr = document.getElementById('fragment').innerText
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER,vertexStr)
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER,fragmentStr)
+    
+    function createProgram(gl, vertexShader, fragmentShader) {
+      const program = gl.createProgram()
+      gl.attachShader(program, vertexShader)
+      gl.attachShader(program, fragmentShader)
+      gl.linkProgram(program)
+      const success = gl.getProgramParameter(program,gl.LINK_STATUS)
+      if(success) return program
+      console.log(gl.getProgramInfoLog(program))
+    }
+    const program = createProgram(gl,vertexShader,fragmentShader)
+    gl.useProgram(program)
+
+    gl.clearColor(1,1,1,1)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+
+    const a_position = gl.getAttribLocation(program, 'a_position')
+    const a_color = gl.getAttribLocation(program,'a_color')
+    const u_Matrix = gl.getUniformLocation(program, 'u_Matrix')
+    // gl.vertexAttrib4f(a_color,1,0,0,1)
+
+    const positionBuffer = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
+    const indexBuffer = gl.createBuffer() 
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
+    function rotate(deg) {
+      let matrix = new Matrix4()
+      matrix = matrix.setRotate(deg ? deg : 0,1,1,0)
+      let viewMatrix = new Matrix4()
+      viewMatrix.ortho(-3,3,-3,3,-100,100)
+      matrix = viewMatrix.multiply(matrix)
+      gl.uniformMatrix4fv(u_Matrix, false, matrix.elements)
+    }
+    gl.enable(gl.CULL_FACE)
+    function draw(params) {
+      const { positions,indexs,rotateDeg } = params
+      rotate(rotateDeg)
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW)
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexs), gl.STATIC_DRAW)
+      gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 6 * 4, 0)
+      gl.vertexAttribPointer(a_color, 3, gl.FLOAT, false, 6 * 4, 3 * 4)
+      gl.enableVertexAttribArray(a_position)
+      gl.enableVertexAttribArray(a_color)
+      gl.drawElements(gl.TRIANGLES, indexs.length, gl.UNSIGNED_SHORT, 0)
+    }
+
+    const v0 = [-.5,.5,-.5],
+          v1 = [-.5,-.5,-.5],
+          v2 = [.5,-.5,-.5],
+          v3 = [.5,.5,-.5],
+          v4 = [-.5,.5,.5],
+          v5 = [-.5,-.5,.5],
+          v6 = [.5,-.5,.5]
+          v7 = [.5,.5,.5]
+    
+    const red = [1,0,0],
+          green = [0,1,0],
+          blue = [0,0,1],
+          yellow = [1,1,0],
+          purple = [1,0,1],
+          cyan = [0,1,1]
+    
+    function drawCube() {
+      draw({
+        rotateDeg: 0,
+        indexs: [
+          // 正面
+          0,1,2,
+          0,2,3,
+          // 后面,
+          7,6,5,
+          7,5,4,
+          // 左面
+          8,9,10,
+          8,10,11,
+          // 右面,
+          12,13,14,
+          12,14,15,
+          // 上面,
+          16,17,18,
+          16,18,19,
+          // 下面,
+          20,21,22,
+          20,22,23
+        ],
+        positions: [
+          // 正面（红色）
+          ...v0, ...red,  // 0
+          ...v1, ...red,  // 1
+          ...v2, ...red,  // 2
+          ...v3, ...red,  // 3
+
+          // 后面（绿色）
+          ...v4, ...green, // 4
+          ...v5, ...green, // 5 
+          ...v6, ...green, // 6
+          ...v7, ...green, // 7
+
+          // 左面（蓝色）
+          ...v4, ...blue,  // 8
+          ...v5, ...blue,  // 9
+          ...v1, ...blue,  // 10
+          ...v0, ...blue,  // 11
+
+          // 右面（黄色）
+          ...v3, ...yellow, // 12
+          ...v2, ...yellow, // 13
+          ...v6, ...yellow, // 14
+          ...v7, ...yellow, // 15
+
+          // 上面（紫色）
+          ...v4, ...purple, // 16
+          ...v0, ...purple, // 17
+          ...v3, ...purple, // 18
+          ...v7, ...purple, // 19
+
+          // 下面（青色）
+          ...v1, ...cyan, // 20
+          ...v5, ...cyan, // 21
+          ...v6, ...cyan, // 22
+          ...v2, ...cyan, // 23
+        ]
+      })
+    }
+    function getSphereData(squreRadius, circleCount, triangleCount, rotateDeg) {
+      const positions = []
+      const unitCircleAngle = Math.PI / circleCount
+      const unitTriangleAngle = Math.PI * 2 / triangleCount
+      for(let i = 0; i <= circleCount; i ++) {
+        const y = squreRadius * Math.cos(unitCircleAngle * i) // 计算出 平行于x轴的圆形分割面的圆心的y值
+        const circleRadius = squreRadius * Math.sin(unitCircleAngle * i)   // 计算出分割面的半径
+        for(let j = 0; j <= triangleCount; j++) {
+          const x = circleRadius * Math.cos(unitTriangleAngle * j)
+          const z = circleRadius * Math.sin(unitTriangleAngle * j)
+          positions.push(x,y,z, Math.random(), Math.random(), Math.random())
+        }
+      }
+      const indexs = []
+      for(let i = 0; i < circleCount; i++) {
+        for(let j = 0; j < triangleCount; j++) {
+          // 因每个横截面往positions push 了 triangleCount+1 个点 最后一个点与最前一个点重叠
+          // 所以当我们进行indexs 设置时 需要 triangleCount + 1 才能正确取点
+          const v0 = i * (triangleCount + 1) + j                
+          const v1 = (i + 1) * (triangleCount + 1) + j
+          const v2 = (i + 1) * (triangleCount +1) + j + 1
+          const v3 = i * (triangleCount + 1) + j + 1
+          indexs.push(v0, v1, v2, v2, v3, v0)
+        }
+      }
+      return {positions,indexs}
+    }
+    const sphereData = getSphereData(0.5,10,8)
+    let deg = 0
+    function start() {
+      deg += 2
+      draw({rotateDeg: deg,...sphereData})
+      requestAnimationFrame(start)
+    }
+    // start()
+      
+    function getConeData(topRadius, bottomRadius, height, horizantialCount, verticalCount) {
+      const positions = []
+      const indexs = []
+      const unitTriangleAngle = Math.PI * 2 / verticalCount
+      for(let i = -1; i <= horizantialCount + 1; i++) {
+         // 通过当前i 所占层数的分数乘以高获得在第i层的高度，height/2 再减去第i层的高度可获得已x轴为分界线的正反方向
+        let y = height / 2 - i / horizantialCount * height
+
+        /* 当梯形以高被分割为若干等分后  两边直角三角型的斜边，底边，垂直 成比例增常
+          所以梯形的底边与上边相减再除以分割的等分数，即可获得单位直角三角型的单位底边长
+          第i个三角型的底边长即i * 单位底边长
+        */  
+        let radius = topRadius + i * (bottomRadius - topRadius) / horizantialCount
+        if(i == -1) {
+          y = height / 2
+          // radius 为0 该缩小为点，同样下面的x,z都会坍缩为0，即横切面圆心位置
+          radius = 0; 
+        } else if(i === horizantialCount + 1){
+          radius = 0;
+          y = - height / 2
+        }
+        for(let j = 0; j <= verticalCount; j++) {
+           // 计算出分割面圆周伤的每个点的  x z，y值与圆心相同
+          const x = radius * Math.sin(unitTriangleAngle * j)
+          const z = radius * Math.cos(unitTriangleAngle * j)
+          positions.push(x, y , z, Math.random(), Math.random(), Math.random())
+        }
+      }
+      for(let i = 0; i < horizantialCount + 2; i++) {
+        // horizantialCount + 2 上面和下面的两个坍缩点
+        for(let j = 0; j < verticalCount; j++) {
+          const v0 = i * (verticalCount + 1) + j
+          const v1 = (i + 1) * (verticalCount + 1) + j
+          const v2 = (i + 1) * (verticalCount +1) + j + 1
+          const v3 = i * (verticalCount + 1) + j + 1
+          indexs.push(v0, v1, v2, v2, v3, v0)
+        }
+      }
+      return {positions,indexs} 
+    }
+    const coneData = getConeData(.2,.5,1,6,10)
+    let deg1 = 0
+    function start1() {
+      deg1+=2
+      draw({rotateDeg: deg1, ...coneData})
+      requestAnimationFrame(start1)
+    }
+    start1()
+  </script>
+</body>
+</html> 
